@@ -1,0 +1,419 @@
+if(p.getName().contains("CPU"))
+			{
+				System.out.println(p.getName());
+				p.printTiles();
+				String turn=p.getName()+" ";
+				boolean placedTile=false;
+				Tile tilePlaced=null;
+				Tile m=null;
+				for(Tile t:p.getTiles())
+				{
+					ArrayList<Tile> l=getSurroundingTiles(boardTile(t));
+					
+					if(!placedTile && l.size()>0 && companyIsMade(l))
+					{
+						Tile ti=t;
+						m=ti;
+						ti.setIsPlaced(true);
+						ti.setColor(Color.GRAY);
+
+						Tile tile=boardTile(ti);
+						tile.setIsPlaced(true);
+						tile.setColor(Color.GRAY);
+					
+						System.out.println("Company Tile");
+						tilePlaced=tile;
+						placedTile=true;
+					}					
+				}
+				
+				if(!placedTile)
+				{
+					for(Tile t:p.getTiles())
+					{
+						if(!placedTile && !merge(getSurroundingTiles(boardTile(t))).isEmpty() && !merge(getSurroundingTiles(boardTile(t))).contains(null))
+						{	
+							Tile ti=t;
+							m=ti;
+							ti.setIsPlaced(true);
+							ti.setColor(Color.GRAY);
+
+							Tile tile=boardTile(ti);
+							tile.setIsPlaced(true);
+							tile.setColor(Color.GRAY);
+							
+							System.out.println("Merge Tile");
+							tilePlaced=tile;			
+							placedTile=true;
+						}					
+					}
+				}
+				
+				if(!placedTile)
+				{
+					int rand=(int)(Math.random()*6);
+					Tile ti=p.getTiles().get(rand);
+					m=ti;
+					
+					ti.setIsPlaced(true);
+					ti.setColor(Color.GRAY);
+
+					Tile tile=boardTile(ti);
+					tile.setIsPlaced(true);
+					tile.setColor(Color.GRAY);
+					
+					System.out.println("Tile at position "+rand);	
+					tilePlaced=tile;			
+					placedTile=true;
+				}
+				
+				p.removeTile(m);
+				
+				turn+="Placed Tile " + tilePlaced.getName() +  "@";
+				
+				ArrayList<Tile> list=getSurroundingTiles(tilePlaced);
+				
+				ArrayList<Tile> a=new ArrayList<>();
+				a.add(tilePlaced);
+				ArrayList<Tile> used=new ArrayList<>();
+				used.add(tilePlaced);
+				ArrayList<Tile> tL=getAllSurroundingTiles(tilePlaced,a,used);
+				
+				ArrayList<Company> merging=merge(list);
+				Company co=companyGrows(list);
+				
+				if(list.size()!=0)
+				{
+					if(companyIsMade(list))
+					{
+						ArrayList<Company> canPick=new ArrayList<>();
+						for(Company c:companies)
+						{
+							if(!c.exists())
+								canPick.add(c);
+						}
+						int rand=(int)(Math.random()*canPick.size());
+						Company c=canPick.get(rand);
+						
+						c.setExist(true);
+						Color companyColor=c.getColor();
+						tilePlaced.setCompany(c);
+						tilePlaced.setColor(companyColor);
+						for(Tile t:tL)
+						{
+							t.setCompany(c);
+							t.setColor(companyColor);
+						}
+						///give player who made it a stock
+						Map<String,Integer> map=new TreeMap<>();
+						map.put(c.getName(),1);
+						p.setStocks(map);
+						c.setStocks(c.getStocksRemaining()-1);
+						c.updateSize(tL.size());
+						ArrayList<Integer> prices=new ArrayList<>();
+						prices=c.getMap().get(c.getSize());
+						c.setStockPrice(prices.get(0));
+						c.setMajorityMinority(prices.get(1),prices.get(2));
+						
+						turn+="Created "+c.getName()+"@";
+						turn+="Got 1 Stock from "+c.getName()+"@";
+					}
+					
+					else if(!merging.isEmpty() && !merging.contains(null))
+					{
+						turn+="Merged ";
+						for(Company comp:merging)
+						{
+							turn+=comp.getName()+" ";
+						}
+						turn+="@";
+					
+						ArrayList<Company> mergeException=mergeException(list);
+						
+						if(!mergeException.isEmpty())
+						{
+							Company stay=mergeException.get(0);
+							int stocks=p.getCompanyStocks(stay);						
+							for(int i=1;i<mergeException.size();i++)
+							{
+								if(p.getCompanyStocks(mergeException.get(i))<stocks)
+								{
+									stay=mergeException.get(i);
+									stocks=p.getCompanyStocks(stay);
+								}
+							}
+							
+							merging.remove(stay);
+							merging.add(0,stay);
+
+						}
+						
+						Company chosen=merging.get(0);
+						chosen.updateSize(1);
+						
+						ArrayList<Company> lost=new ArrayList<>();
+						for(int i=merging.size()-1;i>0;i--)
+						{
+							Company lose=merging.get(i);
+							chosen.merge(lose);
+							lost.add(lose);
+						}
+						
+						for(Company c:lost)
+						{
+							for(Tile t:tL)
+							{
+								t.setCompany(chosen);
+								t.setColor(chosen.getColor());
+							}
+						
+							int majorityNum=0;
+							ArrayList<Player> majority=new ArrayList<>();;
+
+							for(int i=0;i<players.size();i++)
+							{
+								Player pl=players.get(i);
+								if(pl.getCompanyStocks(c)>majorityNum)
+								{
+									majority=new ArrayList<>();
+									majority.add(pl);
+									majorityNum=pl.getCompanyStocks(c);
+								}
+
+								else if(pl.getCompanyStocks(c)==majorityNum && pl.getCompanyStocks(c)>0)
+								{
+									majority.add(pl);
+								}
+							}
+
+							int minorityNum=0;
+							ArrayList<Player> minority=new ArrayList<>();
+
+							for(int i=0;i<players.size();i++)
+							{
+								Player pl=players.get(i);
+								if(!majority.contains(pl) && pl.getCompanyStocks(c)>0)
+								{
+									if(pl.getCompanyStocks(c)>minorityNum)
+									{
+										minority=new ArrayList<>();
+										minority.add(pl);
+										majorityNum=pl.getCompanyStocks(c);
+									}
+
+									else if(pl.getCompanyStocks(c)==minorityNum  && pl.getCompanyStocks(c)>0)
+									{
+										minority.add(pl);
+									}
+								}
+							}
+
+							//give out money
+							for(Player pl:majority)
+							{
+								pl.setMoney(c.getMajority()/majority.size());
+								pl.setLastMove(pl.getLastMove()+"Got Majority@");
+							}
+							
+							if(majority.size()>1 || minority.isEmpty())
+							{
+								for(Player pl:majority)
+								{
+									pl.setMoney(c.getMinority()/majority.size());
+									pl.setLastMove(pl.getLastMove()+"Got Minority@");
+								}
+							}
+
+							else
+							{
+								for(Player pl:minority)
+								{
+									pl.setMoney(c.getMinority()/minority.size());
+									pl.setLastMove(pl.getLastMove()+"Got Minority@");
+								}
+							}
+					
+							for(Player pl:players)
+							{
+								int stocks=pl.getCompanyStocks(c);
+								Map<String,Integer> map=new TreeMap<>();
+								boolean keep=false;
+								while(!keep && stocks!=0)
+								{
+									if(pl.getName().contains("CPU"))
+									{
+										int x=0;
+										if(p.getMoney()<=1200)
+										{
+											x=stocks;
+											int money=c.getStockPrice()*x;
+											pl.setMoney(money);
+
+											map.put(c.getName(),-x);
+											pl.setStocks(map);
+											map=new TreeMap<>();
+
+											c.setStocks(c.getStocksRemaining()+x);
+
+											stocks=0;
+										}
+										
+										if(pl.getCompanyStocks(chosen)>3 && stocks!=0)
+										{
+											x=stocks-stocks%2;
+											
+											map.put(chosen.getName(),x);
+											pl.setStocks(map);
+											map=new TreeMap<>();
+											chosen.setStocks(chosen.getStocksRemaining()-x);
+
+											map.put(c.getName(),-x*2);
+											pl.setStocks(map);
+											map=new TreeMap<>();
+
+											c.setStocks(c.getStocksRemaining()+(x*2));
+
+											stocks=pl.getCompanyStocks(c);
+										}
+										
+										keep=true;
+									}
+									
+									else
+									{
+										System.out.println(pl.getName()+" has "+stocks+" from "+c.getName());
+										System.out.print("What would you like to do with them, Sell, Keep, or Trade: ");
+										//GW1.setInstruct("Choose to Sell, Keep, or Trade");
+										//GW1.repaint();
+										
+										String s=kb.nextLine();
+										if(s.equalsIgnoreCase("Sell"))
+										{
+											System.out.println("How many? ");
+											int x=Integer.parseInt(kb.next());
+											kb.nextLine();
+											while(x>stocks)
+											{
+												System.out.println("Not Enough Stocks, Try Again: ");
+												x=Integer.parseInt(kb.next());
+												kb.nextLine();
+											}
+
+											int money=c.getStockPrice()*x;
+											pl.setMoney(money);
+
+											map.put(c.getName(),-x);
+											pl.setStocks(map);
+											map=new TreeMap<>();
+
+											c.setStocks(c.getStocksRemaining()+x);
+
+											stocks=pl.getCompanyStocks(c);
+
+										}
+
+										else if(s.equalsIgnoreCase("Trade"))
+										{
+											System.out.println("How many Pairs? ");
+											int x=Integer.parseInt(kb.next());
+											kb.nextLine();
+											while(x*2>stocks || chosen.getStocksRemaining()<x)
+											{
+												System.out.println("Not Enough Stocks, Try Again: ");
+												x=Integer.parseInt(kb.next());
+												kb.nextLine();
+											}
+
+											map.put(chosen.getName(),x);
+											pl.setStocks(map);
+											map=new TreeMap<>();
+											chosen.setStocks(chosen.getStocksRemaining()-x);
+
+
+											map.put(c.getName(),-x*2);
+											pl.setStocks(map);
+											map=new TreeMap<>();
+
+											c.setStocks(c.getStocksRemaining()+(x*2));
+
+											stocks=pl.getCompanyStocks(c);
+										}
+									
+										else if(s.equalsIgnoreCase("keep"))
+											keep=true;
+									}
+								}
+							}
+							
+							c.reset();
+						}
+					}
+					
+					else if(co!=null)
+					{
+						tilePlaced.setCompany(co);
+						tilePlaced.setColor(co.getColor());
+						for(Tile t:list)
+						{
+							t.setCompany(co);
+							t.setColor(co.getColor());
+						}
+						co.updateSize(list.size());
+						ArrayList<Integer> prices=new ArrayList<>();
+						prices=co.getMap().get(co.getSize());
+						co.setStockPrice(prices.get(0));
+						co.setMajorityMinority(prices.get(1),prices.get(2));
+					}
+				}
+					if(companiesExist())
+					{
+						Map<String,Integer> map=new TreeMap<>();
+				
+						ArrayList<Company> canPick=new ArrayList<>();
+						for(Company c:companies)
+						{
+							if(c.exists() && c.getStockPrice()<1200 && p.getMoney()>c.getStockPrice() && c.getStocksRemaining()!=0)
+							canPick.add(c);
+						}
+					
+						int rand=(int)(Math.random()*canPick.size());
+						Company picked=canPick.get(rand);
+						int x=p.getMoney()/picked.getStockPrice();
+						if(x>3)
+							x=3;
+					
+						map.put(picked.getName(), x);
+						int money=picked.getStockPrice()*x;
+						p.setMoney(-money);	
+					
+						p.setStocks(map);
+						map.clear();
+					
+						picked.setStocks(picked.getStocksRemaining()-x);
+					
+						turn+="Bought "+x+" Stocks from "+picked.getName()+"@";
+					}
+					
+					for(int i=p.getTiles().size()-1;i>=0;i--)
+					{
+						Tile til=p.getTiles().get(i);
+						Tile tl=boardTile(til);
+						if(unplayable(tl))
+						{
+								p.removeTile(tl);
+								p.getNewTile(tiles);
+								usedTiles.add(tl);
+								tiles.remove(tl);
+								turn+="Discarded "+tl.getName()+".";
+						}
+					}
+					
+				p.setLastMove(turn);
+				players.remove(p);
+				players.add(p);
+				Tile ttile=p.getNewTile(tiles);
+				usedTiles.add(ttile);
+				tiles.remove(ttile);
+				//GW1.repaint();
+				System.out.println("\n\n");
+			}
